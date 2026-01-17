@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nhận Diện Chữ Viết Tay - KNN</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.4);
+            --shadow-soft: 0 10px 40px rgba(0, 0, 0, 0.1);
+            --shadow-colored: 0 10px 25px rgba(118, 75, 162, 0.2);
+            --text-main: #2d3748;
+            --text-light: #718096;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            color: var(--text-main);
+        }
+
+        @keyframes gradientBG {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        .container {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 30px;
+            padding: 40px;
+            box-shadow: var(--shadow-soft);
+            max-width: 1000px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 40px;
+            align-items: start;
+        }
+
+        .header-section {
+            grid-column: 1 / -1;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2.5em;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: var(--text-light);
+            font-size: 1.1em;
+        }
+
+        /* Left Column: Interaction */
+        .interaction-col {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .canvas-wrapper {
+            background: white;
+            padding: 15px;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+
+        .canvas-container {
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            display: inline-block;
+            cursor: crosshair;
+            overflow: hidden;
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+            touch-action: none;
+            background: #fff;
+        }
+
+        /* Controls */
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr;
+            gap: 15px;
+        }
+
+        button {
+            padding: 15px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary-gradient);
+            color: white;
+            box-shadow: var(--shadow-colored);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(118, 75, 162, 0.4);
+        }
+
+        .btn-danger {
+            background: white;
+            color: #e53e3e;
+            border: 2px solid #fed7d7;
+        }
+
+        .btn-danger:hover {
+            background: #fff5f5;
+            border-color: #e53e3e;
+        }
+
+        /* Upload Area */
+        .upload-area {
+            border: 2px dashed #cbd5e0;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.5);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .upload-area:hover,
+        .upload-area.drag-over {
+            border-color: #667eea;
+            background: #eef2ff;
+            transform: translateY(-2px);
+        }
+
+        .upload-icon {
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+
+        .upload-text {
+            font-size: 0.9em;
+            color: var(--text-light);
+            font-weight: 600;
+        }
+
+        /* Right Column: Result */
+        .result-col {
+            background: white;
+            border-radius: 25px;
+            padding: 30px;
+            box-shadow: var(--shadow-soft);
+            min-height: 480px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: var(--text-light);
+            opacity: 0.7;
+        }
+
+        .result-content {
+            display: none;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .prediction-main {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .prediction-char {
+            font-size: 8em;
+            line-height: 1;
+            font-weight: 800;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .prediction-label {
+            font-size: 1.2em;
+            color: var(--text-light);
+            font-weight: 600;
+        }
+
+        .confidence-badge {
+            display: inline-block;
+            padding: 6px 15px;
+            background: #eef2ff;
+            color: #5a67d8;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+
+        /* Top 5 list */
+        .top-list {
+            margin-top: 20px;
+        }
+
+        .list-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            gap: 15px;
+        }
+
+        .item-char {
+            width: 30px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .progress-track {
+            flex: 1;
+            height: 8px;
+            background: #edf2f7;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            background: var(--primary-gradient);
+            width: 0%;
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .item-percent {
+            width: 50px;
+            text-align: right;
+            font-size: 0.85em;
+            color: var(--text-light);
+            font-weight: 600;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 850px) {
+            .container {
+                grid-template-columns: 1fr;
+                padding: 25px;
+            }
+
+            .result-col {
+                min-height: auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="header-section">
+            <h1>Hand Detection</h1>
+            <p class="subtitle">Nhận diện chữ viết tay</p>
+        </header>
+
+        <!-- Cột Trái: Tương tác -->
+        <div class="interaction-col">
+            <div class="canvas-wrapper">
+                <div class="canvas-container">
+                    <canvas id="canvas" width="280" height="280"></canvas>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="btn-danger" id="clearBtn">
+                    <span>🗑️</span> Xóa ảnh
+                </button>
+                <button class="btn-primary" id="predictBtn">
+                    <span>🔍</span> Nhận Diện
+                </button>
+            </div>
+
+            <div class="upload-area" id="dropZone">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">Kéo ảnh vào đây hoặc click để tải lên</div>
+                <input type="file" id="fileInput" accept="image/*">
+            </div>
+            <div id="error" style="color: #e53e3e; text-align: center; font-weight: 600;"></div>
+        </div>
+
+        <!-- Cột Phải: Kết quả -->
+        <div class="result-col">
+            <div id="emptyState" class="empty-state">
+                <div style="font-size: 4em; margin-bottom: 10px;">👋</div>
+                <p>Hãy viết chữ số (0-9) hoặc chữ cái (A-Z)<br>để có thể cho ra kết quả </p>
+            </div>
+
+            <div id="resultContent" class="result-content">
+                <div class="prediction-main">
+                    <div class="prediction-label">Kết quả dự đoán</div>
+                    <div class="prediction-char" id="mainPrediction">?</div>
+                    <div class="confidence-badge">Độ tin cậy: <span id="mainConfidence">0</span>%</div>
+                </div>
+
+                <div class="top-list">
+                    <h3 style="margin-bottom: 15px; font-size: 1em; color: var(--text-main);">Các khả năng khác:</h3>
+                    <div id="topListContainer"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const clearBtn = document.getElementById('clearBtn');
+        const predictBtn = document.getElementById('predictBtn');
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+
+        // Result Elements
+        const emptyState = document.getElementById('emptyState');
+        const resultContent = document.getElementById('resultContent');
+        const mainPrediction = document.getElementById('mainPrediction');
+        const mainConfidence = document.getElementById('mainConfidence');
+        const topListContainer = document.getElementById('topListContainer');
+        const errorDiv = document.getElementById('error');
+
+        let isDrawing = false;
+
+        // --- CANVAS SETUP ---
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 15;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // --- EVENTS ---
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        canvas.addEventListener('touchstart', handleTouch);
+        canvas.addEventListener('touchmove', handleTouch);
+        canvas.addEventListener('touchend', stopDrawing);
+
+        function startDrawing(e) {
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            ctx.beginPath();
+            ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            const rect = canvas.getBoundingClientRect();
+            ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+            ctx.stroke();
+        }
+
+        function stopDrawing() { isDrawing = false; }
+
+        function handleTouch(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent(
+                e.type === 'touchstart' ? 'mousedown' :
+                    e.type === 'touchmove' ? 'mousemove' : 'mouseup',
+                { clientX: touch.clientX, clientY: touch.clientY }
+            );
+            canvas.dispatchEvent(mouseEvent);
+        }
+
+        // --- BUTTON HANDLERS ---
+        clearBtn.addEventListener('click', () => {
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            resetUI();
+        });
+
+        function resetUI() {
+            resultContent.style.display = 'none';
+            emptyState.style.display = 'block';
+            errorDiv.textContent = '';
+        }
+
+        predictBtn.addEventListener('click', async () => {
+            const imageData = canvas.toDataURL('image/png');
+
+            predictBtn.disabled = true;
+            predictBtn.innerHTML = '<span>⏳</span> Đang xử lý...';
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageData })
+                });
+
+                const result = await response.json();
+                if (result.success) displayResult(result);
+                else errorDiv.textContent = '❌ Lỗi: ' + result.error;
+
+            } catch (error) {
+                errorDiv.textContent = '❌ Lỗi kết nối: ' + error;
+            } finally {
+                predictBtn.disabled = false;
+                predictBtn.innerHTML = '<span>🔍</span> Nhận Diện';
+            }
+        });
+
+        // --- UPLOAD HANDLERS ---
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', function () { handleFiles(this.files); });
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault(); e.stopPropagation();
+            }, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('drag-over'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove('drag-over'), false);
+        });
+
+        dropZone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files), false);
+
+        function handleFiles(files) {
+            if (files.length > 0) {
+                const file = files[0];
+                if (!file.type.startsWith('image/')) {
+                    errorDiv.textContent = '⚠️ Vui lòng chọn file ảnh!';
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onload = () => {
+                        ctx.fillStyle = '#fff';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                        const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+                        const x = (canvas.width - img.width * scale) / 2;
+                        const y = (canvas.height - img.height * scale) / 2;
+
+                        ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+                        predictBtn.click();
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // --- DISPLAY RESULT ---
+        function displayResult(result) {
+            emptyState.style.display = 'none';
+            resultContent.style.display = 'block';
+
+            // Main Prediction
+            mainPrediction.textContent = result.predicted_character;
+
+            // Animate number count up
+            animateValue(mainConfidence, 0, result.confidence * 100, 1000);
+
+            // Render List
+            topListContainer.innerHTML = '';
+            result.top_5.forEach((item, index) => {
+                const row = document.createElement('div');
+                row.className = 'list-item';
+                row.innerHTML = `
+                    <div class="item-char">${item.character}</div>
+                    <div class="progress-track">
+                        <div class="progress-fill" style="width: 0%"></div>
+                    </div>
+                    <div class="item-percent">${(item.confidence * 100).toFixed(1)}%</div>
+                `;
+                topListContainer.appendChild(row);
+
+                // Trigger animation after render
+                setTimeout(() => {
+                    row.querySelector('.progress-fill').style.width = (item.confidence * 100) + '%';
+                }, 100 * index);
+            });
+        }
+
+        function animateValue(obj, start, end, duration) {
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                obj.innerHTML = (progress * (end - start) + start).toFixed(2);
+                if (progress < 1) window.requestAnimationFrame(step);
+            };
+            window.requestAnimationFrame(step);
+        }
+    </script>
+</body>
+
+</html>
